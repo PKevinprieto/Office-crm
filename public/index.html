@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>CRM WhatsApp</title>
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <main class="crm">
+      <aside class="sidebar">
+        <header class="sidebar-header">
+          <div>
+            <span class="company">Office</span>
+            <h1>Conversaciones</h1>
+          </div>
+
+          <button class="menu-button" type="button">⋮</button>
+        </header>
+
+        <div class="search-container">
+          <input id="search" type="search" placeholder="Buscar conversación" />
+        </div>
+
+        <section id="conversation-list" class="conversation-list"></section>
+      </aside>
+
+      <section class="chat">
+        <div id="empty-chat" class="empty-chat">
+          <div class="empty-chat-content">
+            <h1>Office</h1>
+            <p>Seleccioná una conversación</p>
+            <span>para comenzar a chatear</span>
+          </div>
+        </div>
+        <div id="active-chat" class="active-chat">
+          <header class="chat-header">
+            <div class="avatar"></div>
+
+            <div class="contact-data">
+              <div class="contact-name-row">
+                <strong id="contact-name"></strong>
+
+                <button
+                  id="edit-contact-button"
+                  class="edit-contact-button"
+                  type="button"
+                  title="Editar contacto"
+                >
+                  ✎
+                </button>
+              </div>
+
+              <span id="contact-number"></span>
+            </div>
+          </header>
+
+          <section id="messages" class="messages"></section>
+
+          <form id="message-form" class="message-form">
+            <input
+              id="imageInput"
+              type="file"
+              accept="image/jpeg,image/png"
+              hidden
+            />
+
+            <button
+              id="attachImageButton"
+              type="button"
+              class="attach-image-button"
+              title="Enviar imagen"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-paperclip"
+              >
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path
+                  d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5"
+                />
+              </svg>
+            </button>
+            <textarea
+              class="message-input"
+              id="message-input"
+              placeholder="Escribí un mensaje"
+              rows="1"
+            ></textarea>
+
+            <button type="submit">Enviar</button>
+          </form>
+        </div>
+      </section>
+    </main>
+    <div id="imageViewer" class="image-viewer">
+      <button id="closeImageViewer" class="image-viewer-close">&times;</button>
+      <img id="imageViewerImg" src="" alt="Imagen ampliada" />
+    </div>
+    <div id="contactModal" class="contact-modal">
+      <div class="contact-modal-content">
+        <h2>Editar contacto</h2>
+
+        <label for="contactNameInput"> Nombre </label>
+
+        <input id="contactNameInput" type="text" autocomplete="off" />
+
+        <div class="contact-modal-actions">
+          <button id="cancelContactEdit" type="button">Cancelar</button>
+
+          <button id="saveContactEdit" type="button">Guardar</button>
+        </div>
+      </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
