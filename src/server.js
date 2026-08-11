@@ -24,6 +24,41 @@ const io = new Server(server);
 
 app.use(cors());
 app.use(express.json());
+
+function requireClientAuth(req, res, next) {
+  const authorization = req.headers.authorization;
+
+  const expectedKey = process.env.OFFICE_CLIENT_KEY;
+
+  if (!expectedKey) {
+    console.error("Falta OFFICE_CLIENT_KEY en las variables de entorno");
+
+    return res.status(500).json({
+      ok: false,
+      message: "Error de configuración del servidor",
+    });
+  }
+
+  if (!authorization) {
+    return res.status(401).json({
+      ok: false,
+      message: "No autorizado",
+    });
+  }
+
+  const expectedAuthorization = `Bearer ${expectedKey}`;
+
+  if (authorization !== expectedAuthorization) {
+    return res.status(401).json({
+      ok: false,
+      message: "No autorizado",
+    });
+  }
+
+  next();
+}
+app.use("/api", requireClientAuth);
+
 app.use(express.static(path.join(__dirname, "../public")));
 
 function formatTime(timestamp) {
