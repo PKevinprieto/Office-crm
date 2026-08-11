@@ -20,7 +20,27 @@ const upload = multer({
   },
 });
 
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
+});
+io.use((socket, next) => {
+  const clientKey = socket.handshake.auth?.clientKey;
+  const expectedKey = process.env.OFFICE_CLIENT_KEY;
+
+  if (!expectedKey) {
+    console.error("Falta OFFICE_CLIENT_KEY para Socket.IO");
+
+    return next(new Error("Error de configuración del servidor"));
+  }
+
+  if (clientKey !== expectedKey) {
+    return next(new Error("No autorizado"));
+  }
+
+  next();
+});
 
 app.use(cors());
 app.use(express.json());
