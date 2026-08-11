@@ -79,7 +79,7 @@ function requireClientAuth(req, res, next) {
 }
 app.use("/api", requireClientAuth);
 
-app.use(express.static(path.join(__dirname, "../public")));
+// app.use(express.static(path.join(__dirname, "../public")));
 
 function formatTime(timestamp) {
   return new Date(Number(timestamp)).toLocaleTimeString("es-AR", {
