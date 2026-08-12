@@ -500,6 +500,39 @@ async function renderActiveConversation(conversation) {
       messagesContainer.appendChild(messageElement);
 
       loadMessageAudio(message.mediaId, messageElement);
+    } else if (message.mediaType === "video" && message.mediaId) {
+      messageElement.innerHTML = `
+    <div
+      class="video-loading"
+      data-media-id="${message.mediaId}"
+    >
+      Cargando video...
+    </div>
+
+    ${message.text ? `<p class="message-text">${message.text}</p>` : ""}
+
+    ${
+      message.reaction
+        ? `<span class="message-reaction">${message.reaction}</span>`
+        : ""
+    }
+
+    <div class="message-meta">
+      <span class="message-time">
+        ${message.time}
+      </span>
+
+      ${
+        message.type === "sent"
+          ? `<span class="message-send-status">✓</span>`
+          : ""
+      }
+    </div>
+  `;
+
+      messagesContainer.appendChild(messageElement);
+
+      loadMessageVideo(message.mediaId, messageElement);
     } else {
       messageElement.innerHTML = `
         <p class="message-text">${message.text}</p>
@@ -686,6 +719,43 @@ async function loadMessageAudio(mediaId, messageElement) {
 
     if (loadingElement) {
       loadingElement.textContent = "No se pudo cargar el audio";
+    }
+  }
+}
+
+async function loadMessageVideo(mediaId, messageElement) {
+  try {
+    const mediaResponse = await window.officeCRM.media(mediaId);
+
+    if (!mediaResponse.ok) {
+      throw new Error("No se pudo cargar el video");
+    }
+
+    const loadingElement = messageElement.querySelector(
+      `.video-loading[data-media-id="${mediaId}"]`,
+    );
+
+    if (!loadingElement) {
+      return;
+    }
+
+    const video = document.createElement("video");
+
+    video.className = "message-video";
+    video.src = mediaResponse.dataUrl;
+    video.controls = true;
+    video.preload = "metadata";
+
+    loadingElement.replaceWith(video);
+  } catch (error) {
+    console.error("Error cargando video:", error);
+
+    const loadingElement = messageElement.querySelector(
+      `.video-loading[data-media-id="${mediaId}"]`,
+    );
+
+    if (loadingElement) {
+      loadingElement.textContent = "No se pudo cargar el video";
     }
   }
 }

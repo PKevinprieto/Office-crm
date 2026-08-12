@@ -16,7 +16,7 @@ const server = http.createServer(app);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 16 * 1024 * 1024,
   },
 });
 
@@ -889,6 +889,175 @@ app.post("/api/messages/image", upload.single("image"), async (req, res) => {
     return res.status(500).json({
       ok: false,
       message: "No se pudo enviar la imagen",
+    });
+  }
+});
+
+// =========================
+// ENVIAR VIDEO
+// =========================
+
+app.post("/api/messages/video", upload.single("video"), async (req, res) => {
+  try {
+    const { conversationId, caption } = req.body;
+    const videoFile = req.file;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        ok: false,
+        message: "Falta conversationId",
+      });
+    }
+
+    if (!videoFile) {
+      return res.status(400).json({
+        ok: false,
+        message: "No se recibió ningún video",
+      });
+    }
+
+    const conversationResult = await db.query(
+      `
+        SELECT *
+        FROM conversations
+        WHERE id = $1
+      `,
+      [Number(conversationId)],
+    );
+
+    const conversation = conversationResult.rows[0];
+
+    if (!conversation) {
+      return res.status(404).json({
+        ok: false,
+        message: "Conversación no encontrada",
+      });
+    }
+
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const apiVersion = process.env.WHATSAPP_API_VERSION;
+
+    if (!token || !phoneNumberId || !apiVersion) {
+      return res.status(500).json({
+        ok: false,
+        message: "Faltan credenciales de WhatsApp",
+      });
+    }
+
+    const recipient = conversation.whatsapp_number.replace(/\D/g, "");
+
+    // 1. Subir video a Meta
+    const formData = new FormData();
+
+    formData.append(
+      "file",
+      new Blob([videoFile.buffer], {
+        type: videoFile.mimetype,
+      }),
+      videoFile.originalname,
+    );
+
+    formData.append("messaging_product", "whatsapp");
+
+    const uploadResponse = await axios.post(
+      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/media`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    const mediaId = uploadResponse.data.id;
+
+    // 2. Enviar video
+    const videoData = {
+      id: mediaId,
+    };
+
+    if (caption?.trim()) {
+      videoData.caption = caption.trim();
+    }
+
+    const whatsappResponse = await axios.post(
+      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+      {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "video",
+        video: videoData,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const whatsappMessageId = whatsappResponse.data.messages?.[0]?.id || null;
+
+    const timestamp = Date.now();
+
+    // 3. Guardar en PostgreSQL
+    await db.query(
+      `
+        INSERT INTO messages (
+          whatsapp_message_id,
+          conversation_id,
+          direction,
+          type,
+          text,
+          timestamp,
+          status,
+          media_id,
+          media_type
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `,
+      [
+        whatsappMessageId,
+        Number(conversation.id),
+        "sent",
+        "video",
+        caption?.trim() || "",
+        timestamp,
+        "sent",
+        mediaId,
+        "video",
+      ],
+    );
+
+    await db.query(
+      `
+        UPDATE conversations
+        SET
+          last_message = $1,
+          last_message_at = $2
+        WHERE id = $3
+      `,
+      [caption?.trim() || "[video]", timestamp, Number(conversation.id)],
+    );
+
+    io.emit("new-message", {
+      conversationId: Number(conversation.id),
+    });
+
+    return res.status(201).json({
+      ok: true,
+      mediaId,
+      whatsappMessageId,
+    });
+  } catch (error) {
+    console.error("Error enviando video:", error.response?.data || error);
+
+    return res.status(500).json({
+      ok: false,
+      message: "No se pudo enviar el video",
+      details: error.response?.data || null,
     });
   }
 });
