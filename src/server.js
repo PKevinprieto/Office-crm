@@ -534,12 +534,16 @@ app.post("/webhook", async (req, res) => {
       messageText = incomingMessage.text?.body || "";
     } else if (incomingMessage.type === "image") {
       messageText = incomingMessage.image?.caption || "";
-
       mediaId = incomingMessage.image?.id || null;
-
       mediaType = "image";
 
       console.log("ID de imagen recibido:", mediaId);
+    } else if (incomingMessage.type === "audio") {
+      messageText = "[audio]";
+      mediaId = incomingMessage.audio?.id || null;
+      mediaType = "audio";
+
+      console.log("ID de audio recibido:", mediaId);
     } else {
       messageText = `[${incomingMessage.type}]`;
     }

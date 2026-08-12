@@ -4,6 +4,13 @@ const contactName = document.querySelector("#contact-name");
 const contactNumber = document.querySelector("#contact-number");
 const messageForm = document.querySelector("#message-form");
 const messageInput = document.querySelector("#message-input");
+messageInput.addEventListener("input", () => {
+  messageInput.style.height = "44px";
+
+  const newHeight = Math.min(messageInput.scrollHeight, 140);
+
+  messageInput.style.height = `${newHeight}px`;
+});
 const searchInput = document.querySelector("#search");
 
 const emptyChat = document.querySelector("#empty-chat");
@@ -17,31 +24,35 @@ imageInput.addEventListener("change", async () => {
     return;
   }
 
-  const formData = new FormData();
-
-  formData.append("image", file);
-  formData.append("conversationId", activeConversationId);
-
   const caption = messageInput.value.trim();
 
-  if (caption) {
-    formData.append("caption", caption);
-  }
-
   try {
-    const response = await fetch("/api/messages/image", {
-      method: "POST",
-      body: formData,
+    // Convertir archivo del navegador
+    // a ArrayBuffer para mandarlo por IPC.
+    const arrayBuffer = await file.arrayBuffer();
+
+    const response = await window.officeCRM.sendImage({
+      conversationId: activeConversationId,
+
+      caption,
+
+      fileName: file.name,
+
+      mimeType: file.type,
+
+      fileBuffer: arrayBuffer,
     });
 
-    const result = await response.json();
-
     if (!response.ok) {
-      throw new Error(result.message || "No se pudo enviar la imagen");
+      throw new Error(response.data?.message || "No se pudo enviar la imagen");
     }
 
     messageInput.value = "";
     imageInput.value = "";
+
+    // Invalidamos el caché porque hay
+    // una imagen nueva en este chat.
+    conversationCache.delete(Number(activeConversationId));
 
     await loadConversations();
     await loadActiveConversation();
@@ -101,24 +112,21 @@ async function saveContact() {
   }
 
   try {
-    const response = await fetch(
-      `/api/conversations/${activeConversationId}/contact`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-        }),
+    const response = await window.officeCRM.api({
+      path: `/api/conversations/${activeConversationId}/contact`,
+      method: "PATCH",
+      body: {
+        name,
       },
-    );
-
-    const result = await response.json();
+    });
 
     if (!response.ok) {
-      throw new Error(result.message || "No se pudo guardar el contacto");
+      throw new Error(
+        response.data?.message || "No se pudo guardar el contacto",
+      );
     }
+
+    const result = response.data;
 
     contactModal.classList.remove("active");
 
@@ -139,11 +147,28 @@ contactNameInput.addEventListener("keydown", (event) => {
     saveContact();
   }
 });
-const notificationSound = new Audio("/sounds/notification.mp3");
-notificationSound.volume = 0.7;
-const socket = io();
+const notificationSound = new Audio("./sounds/notification.mp3");
+notificationSound.volume = 0.5;
+// const keypressSound = new Audio("./sounds/keypress.mp3");
+// keypressSound.volume = 0.1;
+// const keypressSoundSrc = "./sounds/keypress.mp3";
+
+// document.addEventListener("keydown", (event) => {
+//   const silentKeys = ["Shift", "Control", "Alt", "Meta", "CapsLock"];
+
+//   if (silentKeys.includes(event.key)) {
+//     return;
+//   }
+
+//   const sound = new Audio(keypressSoundSrc);
+//   sound.volume = 0.15;
+
+//   sound.play().catch(() => {});
+// });
 let conversations = [];
 let activeConversationId = null;
+const conversationCache = new Map();
+const mediaCache = new Map();
 const unreadChats = new Set();
 
 const imageViewer = document.getElementById("imageViewer");
@@ -197,20 +222,24 @@ function showActiveChat() {
 }
 async function loadConversations() {
   try {
-    const response = await fetch("/api/conversations");
+    const response = await window.officeCRM.api({
+      path: "/api/conversations",
+      method: "GET",
+    });
 
     if (!response.ok) {
-      throw new Error("No se pudieron cargar las conversaciones");
+      throw new Error(
+        response.data?.message || "No se pudieron cargar las conversaciones",
+      );
     }
 
-    conversations = await response.json();
+    conversations = response.data;
 
     renderConversations();
 
     // Si hay un chat seleccionado, lo mostramos.
     if (activeConversationId) {
       showActiveChat();
-      await loadActiveConversation();
     } else {
       // Si no hay ninguno seleccionado, mostramos Office.
       showEmptyChat();
@@ -299,81 +328,46 @@ async function loadActiveConversation() {
     return;
   }
 
+  const conversationId = Number(activeConversationId);
+
+  // Si ya cargamos este chat antes,
+  // lo mostramos inmediatamente desde memoria.
+  if (conversationCache.has(conversationId)) {
+    const cachedConversation = conversationCache.get(conversationId);
+
+    await renderActiveConversation(cachedConversation);
+
+    // Actualizamos los datos silenciosamente,
+    // PERO NO volvemos a dibujar el chat.
+    updateConversationInBackground(conversationId);
+
+    return;
+  }
+
+  // Primera vez que abrimos este chat:
+  // ahí sí lo cargamos normalmente.
   try {
-    const response = await fetch(
-      `/api/conversations/${activeConversationId}/messages`,
-    );
-
-    if (!response.ok) {
-      throw new Error("No se pudieron cargar los mensajes");
-    }
-
-    const conversation = await response.json();
-
-    contactName.textContent = conversation.name;
-    contactNumber.textContent = conversation.number;
-
-    messagesContainer.innerHTML = "";
-
-    conversation.messages.forEach((message) => {
-      const messageElement = document.createElement("article");
-
-      messageElement.className = `message ${message.type}`;
-
-      if (message.mediaType === "image" && message.mediaId) {
-        messageElement.innerHTML = `
-          <div class="message-image-container">
-
-            <img
-              class="message-image"
-              src="/api/media/${message.mediaId}"
-              alt="Imagen recibida"
-            >
-
-            <a
-              class="download-image-button"
-              href="/api/media/${message.mediaId}/download"
-              title="Descargar imagen"
-            >
-              ↓
-            </a>
-
-          </div>
-
-          ${message.text ? `<p class="message-text">${message.text}</p>` : ""}
-
-          ${
-            message.reaction
-              ? `<span class="message-reaction">${message.reaction}</span>`
-              : ""
-          }
-
-          <span class="message-time">
-            ${message.time}
-          </span>
-        `;
-      } else {
-        messageElement.innerHTML = `
-          <p class="message-text">
-            ${message.text}
-          </p>
-
-          ${
-            message.reaction
-              ? `<span class="message-reaction">${message.reaction}</span>`
-              : ""
-          }
-
-          <span class="message-time">
-            ${message.time}
-          </span>
-        `;
-      }
-
-      messagesContainer.appendChild(messageElement);
+    const response = await window.officeCRM.api({
+      path: `/api/conversations/${conversationId}/messages`,
+      method: "GET",
     });
 
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    if (!response.ok) {
+      throw new Error(
+        response.data?.message || "No se pudieron cargar los mensajes",
+      );
+    }
+
+    const conversation = response.data;
+
+    conversationCache.set(conversationId, conversation);
+
+    // Solo dibujamos si seguimos en ese mismo chat.
+    if (Number(activeConversationId) !== conversationId) {
+      return;
+    }
+
+    await renderActiveConversation(conversation);
   } catch (error) {
     console.error(error);
 
@@ -384,6 +378,184 @@ async function loadActiveConversation() {
     `;
   }
 }
+
+async function updateConversationInBackground(conversationId) {
+  try {
+    const response = await window.officeCRM.api({
+      path: `/api/conversations/${conversationId}/messages`,
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    // Actualizamos solamente la memoria.
+    // NO tocamos el HTML del chat.
+    conversationCache.set(conversationId, response.data);
+  } catch (error) {
+    console.error("Error actualizando conversación en segundo plano:", error);
+  }
+}
+
+async function renderActiveConversation(conversation) {
+  contactName.textContent = conversation.name;
+  contactNumber.textContent = conversation.number;
+
+  messagesContainer.innerHTML = "";
+
+  for (const message of conversation.messages) {
+    const messageElement = document.createElement("article");
+
+    messageElement.className = `message ${message.type}`;
+
+    if (message.mediaType === "image" && message.mediaId) {
+      const cachedImage = mediaCache.get(message.mediaId);
+
+      messageElement.innerHTML = `
+        <div class="message-image-container">
+
+          ${
+            cachedImage
+              ? `
+                <img
+                  class="message-image"
+                  src="${cachedImage}"
+                  alt="Imagen recibida"
+                >
+              `
+              : `
+                <div
+                  class="image-loading"
+                  data-media-id="${message.mediaId}"
+                >
+                  Cargando imagen...
+                </div>
+              `
+          }
+
+          <button
+            class="download-image-button"
+            data-media-id="${message.mediaId}"
+            type="button"
+            title="Descargar imagen"
+          >
+            ↓
+          </button>
+
+        </div>
+
+        ${message.text ? `<p class="message-text">${message.text}</p>` : ""}
+
+        ${
+          message.reaction
+            ? `<span class="message-reaction">${message.reaction}</span>`
+            : ""
+        }
+
+      <div class="message-meta">
+  <span class="message-time">
+    ${message.time}
+  </span>
+
+  ${message.type === "sent" ? `<span class="message-send-status">✓</span>` : ""}
+</div>
+      `;
+
+      messagesContainer.appendChild(messageElement);
+
+      // La imagen se carga DESPUÉS,
+      // sin frenar el resto del chat.
+      if (!cachedImage) {
+        loadMessageImage(message.mediaId, messageElement);
+      }
+    } else {
+      messageElement.innerHTML = `
+        <p class="message-text">${message.text}</p>
+
+        ${
+          message.reaction
+            ? `<span class="message-reaction">${message.reaction}</span>`
+            : ""
+        }
+
+        <div class="message-meta">
+  <span class="message-time">
+    ${message.time}
+  </span>
+
+  ${message.type === "sent" ? `<span class="message-send-status">✓</span>` : ""}
+</div>
+      `;
+
+      messagesContainer.appendChild(messageElement);
+    }
+  }
+
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+async function loadMessageImage(mediaId, messageElement) {
+  try {
+    const mediaResponse = await window.officeCRM.media(mediaId);
+
+    if (!mediaResponse.ok) {
+      throw new Error("No se pudo cargar la imagen");
+    }
+
+    const imageSrc = mediaResponse.dataUrl;
+
+    mediaCache.set(mediaId, imageSrc);
+
+    const loadingElement = messageElement.querySelector(
+      `.image-loading[data-media-id="${mediaId}"]`,
+    );
+
+    if (!loadingElement) {
+      return;
+    }
+
+    const img = document.createElement("img");
+
+    img.className = "message-image";
+    img.src = imageSrc;
+    img.alt = "Imagen recibida";
+
+    loadingElement.replaceWith(img);
+  } catch (error) {
+    console.error("Error cargando imagen:", error);
+
+    const loadingElement = messageElement.querySelector(
+      `.image-loading[data-media-id="${mediaId}"]`,
+    );
+
+    if (loadingElement) {
+      loadingElement.textContent = "No se pudo cargar la imagen";
+    }
+  }
+}
+
+document.addEventListener("click", async (event) => {
+  const downloadButton = event.target.closest(".download-image-button");
+
+  if (!downloadButton) {
+    return;
+  }
+
+  event.stopPropagation();
+
+  const mediaId = downloadButton.dataset.mediaId;
+
+  if (!mediaId) {
+    return;
+  }
+
+  const result = await window.officeCRM.downloadMedia(mediaId);
+
+  if (!result.ok && !result.canceled) {
+    alert(result.message || "No se pudo descargar la imagen");
+  }
+});
 messageInput.addEventListener("keydown", (event) => {
   // Ctrl + Enter = salto de línea
   if (event.key === "Enter" && event.ctrlKey) {
@@ -419,44 +591,137 @@ messageForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const submitButton = messageForm.querySelector("button");
+  const conversationId = Number(activeConversationId);
 
-  submitButton.disabled = true;
-  messageInput.disabled = true;
+  // Limpiamos el input INMEDIATAMENTE
+  messageInput.value = "";
+  messageInput.focus();
+
+  // =========================
+  // MENSAJE OPTIMISTA
+  // =========================
+
+  const tempId = `temp-${Date.now()}-${Math.random()}`;
+
+  const now = Date.now();
+
+  const optimisticMessage = {
+    id: tempId,
+    type: "sent",
+    text,
+    timestamp: now,
+    time: new Date(now).toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    status: "sending",
+    mediaId: null,
+    mediaType: null,
+    reaction: null,
+  };
+
+  // Mostrarlo AHORA
+  appendOptimisticMessage(optimisticMessage);
+
+  // Actualizar cache local
+  const cachedConversation = conversationCache.get(conversationId);
+
+  if (cachedConversation) {
+    cachedConversation.messages.push(optimisticMessage);
+
+    cachedConversation.lastMessage = text;
+  }
 
   try {
-    const response = await fetch("/api/messages", {
+    // =========================
+    // ENVÍO REAL EN SEGUNDO PLANO
+    // =========================
+
+    const response = await window.officeCRM.api({
+      path: "/api/messages",
       method: "POST",
 
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify({
-        conversationId: activeConversationId,
+      body: {
+        conversationId,
         text,
-      }),
+      },
     });
 
-    const result = await response.json();
-
     if (!response.ok) {
-      throw new Error(result.message || "No se pudo enviar el mensaje");
+      throw new Error(response.data?.message || "No se pudo enviar el mensaje");
     }
 
-    messageInput.value = "";
+    // Marcamos visualmente como enviado
+    updateOptimisticMessageStatus(tempId, "sent");
 
+    // Actualizamos solo la lista izquierda
     await loadConversations();
 
-    messageInput.focus();
+    // Actualizamos caché silenciosamente
+    updateConversationInBackground(conversationId);
   } catch (error) {
     console.error(error);
-    alert(error.message);
-  } finally {
-    submitButton.disabled = false;
-    messageInput.disabled = false;
+
+    // No borramos el mensaje:
+    // mostramos que falló.
+    updateOptimisticMessageStatus(tempId, "failed");
   }
 });
+
+function appendOptimisticMessage(message) {
+  const messageElement = document.createElement("article");
+
+  messageElement.className = `message ${message.type}`;
+
+  messageElement.dataset.tempId = message.id;
+
+  messageElement.innerHTML = `
+    <p class="message-text">${message.text}</p>
+
+    <div class="message-meta">
+  <span class="message-time">
+    ${message.time}
+  </span>
+
+  <span class="message-send-status">
+    ◷
+  </span>
+</div>
+  `;
+
+  messagesContainer.appendChild(messageElement);
+
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateOptimisticMessageStatus(tempId, status) {
+  const messageElement = messagesContainer.querySelector(
+    `[data-temp-id="${tempId}"]`,
+  );
+
+  if (!messageElement) {
+    return;
+  }
+
+  const statusElement = messageElement.querySelector(".message-send-status");
+
+  if (!statusElement) {
+    return;
+  }
+
+  if (status === "sent") {
+    statusElement.textContent = "✓";
+    statusElement.title = "Enviado";
+  }
+
+  if (status === "failed") {
+    statusElement.textContent = "⚠";
+
+    statusElement.title = "No se pudo enviar el mensaje";
+
+    messageElement.classList.add("message-failed");
+  }
+}
 
 searchInput.addEventListener("input", () => {
   const search = searchInput.value.toLowerCase().trim();
@@ -470,21 +735,17 @@ searchInput.addEventListener("input", () => {
 
   renderConversations(filteredConversations);
 });
-socket.on("connect", () => {
-  console.log("Conectado a Socket.IO:", socket.id);
-});
-
-socket.on("new-message", async (data) => {
-  console.log("Nuevo WhatsApp recibido:", data);
+window.officeCRM.onNewMessage(async (data) => {
+  console.log("Nuevo mensaje recibido en Electron:", data);
 
   const incomingConversationId = Number(data.conversationId);
 
-  // Si el mensaje llegó a un chat que NO está abierto
+  // Si llegó a otro chat
   if (incomingConversationId !== Number(activeConversationId)) {
-    // Marcar ese chat como no leído
     unreadChats.add(incomingConversationId);
 
-    // Reproducir sonido
+    conversationCache.delete(incomingConversationId);
+
     notificationSound.currentTime = 0;
 
     notificationSound.play().catch((error) => {
@@ -492,8 +753,39 @@ socket.on("new-message", async (data) => {
     });
   }
 
+  // Actualizar lista izquierda
   await loadConversations();
+
+  // Si el mensaje pertenece al chat que estamos mirando,
+  // traemos su versión nueva.
+  if (incomingConversationId === Number(activeConversationId)) {
+    await refreshActiveConversation(incomingConversationId);
+  }
 });
+async function refreshActiveConversation(conversationId) {
+  try {
+    const response = await window.officeCRM.api({
+      path: `/api/conversations/${conversationId}/messages`,
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const conversation = response.data;
+
+    conversationCache.set(Number(conversationId), conversation);
+
+    // Si seguimos mirando ese chat,
+    // actualizarlo.
+    if (Number(activeConversationId) === Number(conversationId)) {
+      await renderActiveConversation(conversation);
+    }
+  } catch (error) {
+    console.error("Error actualizando chat en tiempo real:", error);
+  }
+}
 function closeActiveConversation() {
   activeConversationId = null;
 

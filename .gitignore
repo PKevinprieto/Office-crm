@@ -8,3 +8,5 @@ data/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+out/
+client-config.json
