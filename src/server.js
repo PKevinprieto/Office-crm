@@ -544,6 +544,12 @@ app.post("/webhook", async (req, res) => {
       mediaType = "audio";
 
       console.log("ID de audio recibido:", mediaId);
+    } else if (incomingMessage.type === "video") {
+      messageText = incomingMessage.video?.caption || "";
+      mediaId = incomingMessage.video?.id || null;
+      mediaType = "video";
+
+      console.log("ID de video recibido:", mediaId);
     } else {
       messageText = `[${incomingMessage.type}]`;
     }

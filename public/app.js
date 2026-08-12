@@ -469,6 +469,37 @@ async function renderActiveConversation(conversation) {
       if (!cachedImage) {
         loadMessageImage(message.mediaId, messageElement);
       }
+    } else if (message.mediaType === "audio" && message.mediaId) {
+      messageElement.innerHTML = `
+    <div
+      class="audio-loading"
+      data-media-id="${message.mediaId}"
+    >
+      Cargando audio...
+    </div>
+
+    ${
+      message.reaction
+        ? `<span class="message-reaction">${message.reaction}</span>`
+        : ""
+    }
+
+    <div class="message-meta">
+      <span class="message-time">
+        ${message.time}
+      </span>
+
+      ${
+        message.type === "sent"
+          ? `<span class="message-send-status">✓</span>`
+          : ""
+      }
+    </div>
+  `;
+
+      messagesContainer.appendChild(messageElement);
+
+      loadMessageAudio(message.mediaId, messageElement);
     } else {
       messageElement.innerHTML = `
         <p class="message-text">${message.text}</p>
@@ -531,6 +562,130 @@ async function loadMessageImage(mediaId, messageElement) {
 
     if (loadingElement) {
       loadingElement.textContent = "No se pudo cargar la imagen";
+    }
+  }
+}
+
+async function loadMessageAudio(mediaId, messageElement) {
+  try {
+    const mediaResponse = await window.officeCRM.media(mediaId);
+
+    if (!mediaResponse.ok) {
+      throw new Error("No se pudo cargar el audio");
+    }
+
+    const loadingElement = messageElement.querySelector(
+      `.audio-loading[data-media-id="${mediaId}"]`,
+    );
+
+    if (!loadingElement) return;
+
+    const player = document.createElement("div");
+    player.className = "whatsapp-audio";
+
+    player.innerHTML = `
+      <button class="audio-play" type="button">
+        ▶
+      </button>
+
+      <div class="audio-center">
+        <input
+          class="audio-progress"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+          step="0.1"
+        >
+
+        <span class="audio-duration">0:00</span>
+      </div>
+
+      <button class="audio-speed" type="button">
+        1x
+      </button>
+
+      <audio preload="metadata"></audio>
+    `;
+
+    loadingElement.replaceWith(player);
+
+    const audio = player.querySelector("audio");
+    const playButton = player.querySelector(".audio-play");
+    const progress = player.querySelector(".audio-progress");
+    const durationElement = player.querySelector(".audio-duration");
+    const speedButton = player.querySelector(".audio-speed");
+
+    audio.src = mediaResponse.dataUrl;
+
+    function formatAudioTime(seconds) {
+      if (!Number.isFinite(seconds)) return "0:00";
+
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+
+      return `${minutes}:${String(secs).padStart(2, "0")}`;
+    }
+
+    audio.addEventListener("loadedmetadata", () => {
+      durationElement.textContent = formatAudioTime(audio.duration);
+    });
+
+    playButton.addEventListener("click", async () => {
+      if (audio.paused) {
+        await audio.play();
+      } else {
+        audio.pause();
+      }
+    });
+
+    audio.addEventListener("play", () => {
+      playButton.textContent = "❚❚";
+    });
+
+    audio.addEventListener("pause", () => {
+      playButton.textContent = "▶";
+    });
+
+    audio.addEventListener("ended", () => {
+      playButton.textContent = "▶";
+      progress.value = 0;
+    });
+
+    audio.addEventListener("timeupdate", () => {
+      if (!audio.duration) return;
+
+      progress.value = (audio.currentTime / audio.duration) * 100;
+
+      durationElement.textContent = formatAudioTime(audio.currentTime);
+    });
+
+    progress.addEventListener("input", () => {
+      if (!audio.duration) return;
+
+      audio.currentTime = (Number(progress.value) / 100) * audio.duration;
+    });
+
+    const speeds = [1, 1.5, 2];
+    let speedIndex = 0;
+
+    speedButton.addEventListener("click", () => {
+      speedIndex = (speedIndex + 1) % speeds.length;
+
+      const speed = speeds[speedIndex];
+
+      audio.playbackRate = speed;
+      speedButton.textContent = `${speed}x`;
+    });
+  } catch (error) {
+    console.error("Error cargando audio:", error);
+
+    const loadingElement = messageElement.querySelector(
+      `.audio-loading[data-media-id="${mediaId}"]`,
+    );
+
+    if (loadingElement) {
+      loadingElement.textContent = "No se pudo cargar el audio";
     }
   }
 }
