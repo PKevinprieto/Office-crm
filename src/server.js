@@ -169,6 +169,11 @@ function convertAudioToOggOpus(inputBuffer) {
           );
 
           console.log(
+            "Contiene OpusHead:",
+            outputBuffer.includes(Buffer.from("OpusHead")),
+          );
+
+          console.log(
             "Primeros bytes:",
             outputBuffer.subarray(0, 16).toString("hex"),
           );
@@ -1235,11 +1240,6 @@ app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
     console.log("Audio convertido:", convertedAudio.length, "audio/ogg");
 
     console.log("Firma OGG:", convertedAudio.subarray(0, 4).toString("ascii"));
-
-    console.log(
-      "Contiene OpusHead:",
-      outputBuffer.includes(Buffer.from("OpusHead")),
-    );
 
     const formData = new FormDataNode();
 
