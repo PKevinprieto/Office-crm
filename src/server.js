@@ -113,20 +113,32 @@ function convertAudioToOggOpus(inputBuffer) {
 
         "-vn",
 
+        "-map_metadata",
+        "-1",
+
+        "-ac",
+        "1",
+
+        "-ar",
+        "48000",
+
         "-c:a",
         "libopus",
 
         "-application",
         "voip",
 
+        "-frame_duration",
+        "20",
+
         "-b:a",
-        "32k",
+        "24k",
 
-        "-ar",
-        "48000",
+        "-vbr",
+        "on",
 
-        "-ac",
-        "1",
+        "-compression_level",
+        "10",
 
         "-f",
         "ogg",
@@ -1224,6 +1236,11 @@ app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
 
     console.log("Firma OGG:", convertedAudio.subarray(0, 4).toString("ascii"));
 
+    console.log(
+      "Contiene OpusHead:",
+      outputBuffer.includes(Buffer.from("OpusHead")),
+    );
+
     const formData = new FormDataNode();
 
     formData.append("messaging_product", "whatsapp");
@@ -1269,6 +1286,7 @@ app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
 
         audio: {
           id: mediaId,
+          voice: true,
         },
       },
       {
