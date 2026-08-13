@@ -144,27 +144,47 @@ function stopAudioRecording() {
 }
 
 async function sendRecordedAudio() {
+  const conversationId = Number(activeConversationId);
+
+  if (!audioChunks.length || !conversationId) {
+    return;
+  }
+
+  const mimeType = audioRecorder?.mimeType || "audio/mp4";
+
+  const audioBlob = new Blob(audioChunks, {
+    type: mimeType,
+  });
+
+  const previewUrl = URL.createObjectURL(audioBlob);
+
+  const tempId = `temp-audio-${Date.now()}-${Math.random()}`;
+
+  const now = Date.now();
+
+  // =========================
+  // MOSTRAR AUDIO INMEDIATAMENTE
+  // =========================
+
+  appendOptimisticAudio({
+    id: tempId,
+    type: "sent",
+    previewUrl,
+    time: new Date(now).toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  });
+
   try {
-    if (!audioChunks.length || !activeConversationId) {
-      return;
-    }
-
-    const mimeType = audioRecorder?.mimeType || "audio/mp4";
-
-    const audioBlob = new Blob(audioChunks, {
-      type: mimeType,
-    });
-
-    console.log("Audio preparado:", audioBlob.size, audioBlob.type);
-
     const arrayBuffer = await audioBlob.arrayBuffer();
 
     const response = await window.officeCRM.sendAudio({
-      conversationId: Number(activeConversationId),
+      conversationId,
 
       fileName: `audio-${Date.now()}.mp4`,
 
-      mimeType: mimeType,
+      mimeType,
 
       fileBuffer: arrayBuffer,
     });
@@ -173,17 +193,20 @@ async function sendRecordedAudio() {
       throw new Error(response.data?.message || "No se pudo enviar el audio");
     }
 
-    console.log("Audio enviado correctamente");
-
-    conversationCache.delete(Number(activeConversationId));
+    // Cambia ◷ por ✓
+    updateOptimisticMessageStatus(tempId, "sent");
 
     await loadConversations();
 
-    updateConversationInBackground(Number(activeConversationId));
+    updateConversationInBackground(conversationId);
+
+    setTimeout(() => {
+      URL.revokeObjectURL(previewUrl);
+    }, 60000);
   } catch (error) {
     console.error("Error enviando audio:", error);
 
-    alert(error.message);
+    updateOptimisticMessageStatus(tempId, "failed");
   } finally {
     audioChunks = [];
     audioRecorder = null;
@@ -192,6 +215,150 @@ async function sendRecordedAudio() {
     messageInput.focus();
   }
 }
+
+function appendOptimisticAudio(message) {
+  const messageElement = document.createElement("article");
+
+  messageElement.className = `message ${message.type}`;
+
+  messageElement.dataset.tempId = message.id;
+
+  messageElement.innerHTML = `
+    <div class="whatsapp-audio">
+
+      <button
+        class="audio-play"
+        type="button"
+      >
+        ▶
+      </button>
+
+      <div class="audio-center">
+
+        <input
+          class="audio-progress"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+          step="0.1"
+        >
+
+        <span class="audio-duration">
+          0:00
+        </span>
+
+      </div>
+
+      <button
+        class="audio-speed"
+        type="button"
+      >
+        1x
+      </button>
+
+      <audio
+        src="${message.previewUrl}"
+        preload="metadata"
+      ></audio>
+
+    </div>
+
+    <div class="message-meta">
+
+      <span class="message-time">
+        ${message.time}
+      </span>
+
+      <span class="message-send-status">
+        ◷
+      </span>
+
+    </div>
+  `;
+
+  messagesContainer.appendChild(messageElement);
+
+  initializeOptimisticAudioPlayer(messageElement);
+
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function initializeOptimisticAudioPlayer(messageElement) {
+  const audio = messageElement.querySelector("audio");
+
+  const playButton = messageElement.querySelector(".audio-play");
+
+  const progress = messageElement.querySelector(".audio-progress");
+
+  const durationElement = messageElement.querySelector(".audio-duration");
+
+  const speedButton = messageElement.querySelector(".audio-speed");
+
+  function formatAudioTime(seconds) {
+    if (!Number.isFinite(seconds)) {
+      return "0:00";
+    }
+
+    const minutes = Math.floor(seconds / 60);
+
+    const secs = Math.floor(seconds % 60);
+
+    return `${minutes}:${String(secs).padStart(2, "0")}`;
+  }
+
+  audio.addEventListener("loadedmetadata", () => {
+    durationElement.textContent = formatAudioTime(audio.duration);
+  });
+
+  playButton.addEventListener("click", async () => {
+    if (audio.paused) {
+      await audio.play();
+    } else {
+      audio.pause();
+    }
+  });
+
+  audio.addEventListener("play", () => {
+    playButton.textContent = "❚❚";
+  });
+
+  audio.addEventListener("pause", () => {
+    playButton.textContent = "▶";
+  });
+
+  audio.addEventListener("timeupdate", () => {
+    if (!audio.duration) {
+      return;
+    }
+
+    progress.value = (audio.currentTime / audio.duration) * 100;
+
+    durationElement.textContent = formatAudioTime(audio.currentTime);
+  });
+
+  progress.addEventListener("input", () => {
+    if (!audio.duration) {
+      return;
+    }
+
+    audio.currentTime = (Number(progress.value) / 100) * audio.duration;
+  });
+
+  const speeds = [1, 1.5, 2];
+  let speedIndex = 0;
+
+  speedButton.addEventListener("click", () => {
+    speedIndex = (speedIndex + 1) % speeds.length;
+
+    const speed = speeds[speedIndex];
+
+    audio.playbackRate = speed;
+
+    speedButton.textContent = `${speed}x`;
+  });
+}
+
 const screenshotEditor = document.getElementById("screenshotEditor");
 
 const screenshotCanvas = document.getElementById("screenshotCanvas");

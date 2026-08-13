@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const FormDataNode = require("form-data");
 const path = require("path");
 const axios = require("axios");
 const fs = require("fs");
@@ -106,6 +107,7 @@ function convertAudioToOggOpus(inputBuffer) {
       ffmpegPath,
       [
         "-y",
+
         "-i",
         inputPath,
 
@@ -113,6 +115,9 @@ function convertAudioToOggOpus(inputBuffer) {
 
         "-c:a",
         "libopus",
+
+        "-application",
+        "voip",
 
         "-b:a",
         "32k",
@@ -122,6 +127,9 @@ function convertAudioToOggOpus(inputBuffer) {
 
         "-ac",
         "1",
+
+        "-f",
+        "ogg",
 
         outputPath,
       ],
@@ -142,6 +150,16 @@ function convertAudioToOggOpus(inputBuffer) {
 
         try {
           const outputBuffer = fs.readFileSync(outputPath);
+
+          console.log(
+            "Firma archivo convertido:",
+            outputBuffer.subarray(0, 4).toString("ascii"),
+          );
+
+          console.log(
+            "Primeros bytes:",
+            outputBuffer.subarray(0, 16).toString("hex"),
+          );
 
           fs.unlinkSync(outputPath);
 
@@ -1204,17 +1222,17 @@ app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
 
     console.log("Audio convertido:", convertedAudio.length, "audio/ogg");
 
-    const formData = new FormData();
+    console.log("Firma OGG:", convertedAudio.subarray(0, 4).toString("ascii"));
 
-    formData.append(
-      "file",
-      new Blob([convertedAudio], {
-        type: "audio/ogg",
-      }),
-      `audio-${Date.now()}.ogg`,
-    );
+    const formData = new FormDataNode();
 
     formData.append("messaging_product", "whatsapp");
+
+    formData.append("file", convertedAudio, {
+      filename: `audio-${Date.now()}.ogg`,
+      contentType: "audio/ogg",
+      knownLength: convertedAudio.length,
+    });
 
     const uploadResponse = await axios.post(
       `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/media`,
@@ -1222,7 +1240,11 @@ app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${token}`,
+          ...formData.getHeaders(),
         },
+
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
       },
     );
 
