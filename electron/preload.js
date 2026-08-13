@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld("officeCRM", {
 
   sendImage: (data) => ipcRenderer.invoke("office-send-image", data),
 
+  sendVideo: (data) => ipcRenderer.invoke("office-send-video", data),
+
+  sendAudio: (data) => ipcRenderer.invoke("office-send-audio", data),
+
   onNewMessage: (callback) => {
     ipcRenderer.on("new-message", (event, data) => {
       callback(data);

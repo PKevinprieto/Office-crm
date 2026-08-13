@@ -19,7 +19,18 @@
             <h1>Conversaciones</h1>
           </div>
 
-          <button class="menu-button" type="button">⋮</button>
+          <div class="sidebar-actions">
+            <button
+              id="themeToggle"
+              class="theme-toggle"
+              type="button"
+              title="Cambiar tema"
+            >
+              🌙
+            </button>
+
+            <button class="menu-button" type="button">⋮</button>
+          </div>
         </header>
 
         <div class="search-container">
@@ -65,7 +76,7 @@
             <input
               id="imageInput"
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/jpeg,image/png,video/mp4,video/quicktime"
               hidden
             />
 
@@ -93,6 +104,25 @@
                 />
               </svg>
             </button>
+            <!-- BOTÓN EMOJIS -->
+            <div class="emoji-container">
+              <button
+                id="emojiButton"
+                class="emoji-button"
+                type="button"
+                title="Emojis"
+              >
+                ☺
+              </button>
+
+              <div id="emojiPicker" class="emoji-picker" hidden>
+                <div class="emoji-picker-header">
+                  <strong>Emojis</strong>
+                </div>
+
+                <div id="emojiGrid" class="emoji-grid"></div>
+              </div>
+            </div>
             <textarea
               class="message-input"
               id="message-input"
@@ -100,7 +130,24 @@
               rows="1"
             ></textarea>
 
-            <button type="submit">Enviar</button>
+            <div
+              id="audioRecordingStatus"
+              class="audio-recording-status"
+              hidden
+            >
+              <span class="recording-dot"></span>
+              <span>Grabando</span>
+              <span id="audioRecordingTime">0:00</span>
+            </div>
+
+            <button
+              id="messageActionButton"
+              class="message-action-button"
+              type="submit"
+              title="Grabar audio"
+            >
+              <span id="messageActionContent">🎤</span>
+            </button>
           </form>
         </div>
       </section>
@@ -121,6 +168,51 @@
           <button id="cancelContactEdit" type="button">Cancelar</button>
 
           <button id="saveContactEdit" type="button">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDITOR DE CAPTURAS -->
+    <div id="screenshotEditor" class="screenshot-editor">
+      <div class="screenshot-editor-content">
+        <div class="screenshot-editor-header">
+          <strong>Editar captura</strong>
+
+          <button id="closeScreenshotEditor" type="button" title="Cancelar">
+            ×
+          </button>
+        </div>
+
+        <div class="screenshot-canvas-container">
+          <canvas id="screenshotCanvas"></canvas>
+        </div>
+
+        <div class="screenshot-editor-footer">
+          <button
+            id="clearScreenshotDrawing"
+            type="button"
+            class="screenshot-secondary-button"
+          >
+            Borrar dibujo
+          </button>
+
+          <div class="screenshot-editor-actions">
+            <button
+              id="cancelScreenshot"
+              type="button"
+              class="screenshot-secondary-button"
+            >
+              Cancelar
+            </button>
+
+            <button
+              id="sendScreenshot"
+              type="button"
+              class="screenshot-send-button"
+            >
+              Enviar
+            </button>
+          </div>
         </div>
       </div>
     </div>

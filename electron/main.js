@@ -7,7 +7,7 @@ require("dotenv").config();
 let mainWindow;
 let socket;
 
-const BACKEND_URL = "https://office-crm-72fv.onrender.com";
+const BACKEND_URL = "https://office-crm-2i0s.onrender.com";
 
 let OFFICE_CLIENT_KEY = process.env.OFFICE_CLIENT_KEY;
 
@@ -213,6 +213,99 @@ ipcMain.handle("office-send-image", async (event, data) => {
       status: 500,
       data: {
         message: "No se pudo enviar la imagen",
+      },
+    };
+  }
+});
+
+ipcMain.handle("office-send-video", async (event, data) => {
+  try {
+    const { conversationId, caption, fileName, mimeType, fileBuffer } = data;
+
+    const formData = new FormData();
+
+    const blob = new Blob([Buffer.from(fileBuffer)], {
+      type: mimeType,
+    });
+
+    formData.append("video", blob, fileName);
+
+    formData.append("conversationId", String(conversationId));
+
+    if (caption?.trim()) {
+      formData.append("caption", caption.trim());
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/messages/video`, {
+      method: "POST",
+
+      headers: {
+        Authorization: `Bearer ${OFFICE_CLIENT_KEY}`,
+      },
+
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      data: result,
+    };
+  } catch (error) {
+    console.error("Error enviando video desde Electron:", error);
+
+    return {
+      ok: false,
+      status: 500,
+      data: {
+        message: "No se pudo enviar el video",
+      },
+    };
+  }
+});
+
+ipcMain.handle("office-send-audio", async (event, data) => {
+  try {
+    const { conversationId, fileName, mimeType, fileBuffer } = data;
+
+    const formData = new FormData();
+
+    const cleanMimeType = mimeType.split(";")[0];
+
+    const blob = new Blob([Buffer.from(fileBuffer)], {
+      type: cleanMimeType,
+    });
+    formData.append("audio", blob, fileName);
+
+    formData.append("conversationId", String(conversationId));
+
+    const response = await fetch(`${BACKEND_URL}/api/messages/audio`, {
+      method: "POST",
+
+      headers: {
+        Authorization: `Bearer ${OFFICE_CLIENT_KEY}`,
+      },
+
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      data: result,
+    };
+  } catch (error) {
+    console.error("Error enviando audio desde Electron:", error);
+
+    return {
+      ok: false,
+      status: 500,
+      data: {
+        message: "No se pudo enviar el audio",
       },
     };
   }

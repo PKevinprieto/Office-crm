@@ -744,3 +744,755 @@ input {
 
   background: #000;
 }
+/* =========================
+   EMOJIS
+========================= */
+
+.emoji-container {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+}
+
+.emoji-button {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #54656f;
+
+  font-size: 27px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.emoji-button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* PANEL */
+
+.emoji-picker {
+  position: absolute;
+
+  left: 0;
+  bottom: 52px;
+
+  width: 340px;
+  height: 350px;
+
+  padding: 12px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+
+  z-index: 1000;
+}
+
+.emoji-picker[hidden] {
+  display: none;
+}
+
+.emoji-picker-header {
+  height: 30px;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 5px 8px;
+
+  color: #54656f;
+  font-size: 13px;
+}
+
+/* GRILLA */
+
+.emoji-grid {
+  height: calc(100% - 30px);
+
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+
+  align-content: start;
+  gap: 2px;
+
+  overflow-y: auto;
+
+  padding-right: 4px;
+}
+
+.emoji-item {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+
+  font-size: 23px;
+
+  cursor: pointer;
+}
+
+.emoji-item:hover {
+  background: #f0f2f5;
+}
+
+/* SCROLL */
+
+.emoji-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb {
+  background: #c5c9cc;
+  border-radius: 10px;
+}
+/* =========================================================
+   TEMA OSCURO - OFFICE CRM
+========================================================= */
+
+.sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #54656f;
+
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: #e2e6e8;
+}
+
+/* =========================
+   BASE
+========================= */
+
+body.dark-theme {
+  background: #0b141a;
+  color: #e9edef;
+}
+
+body.dark-theme .crm {
+  background: #111b21;
+}
+
+/* =========================
+   SIDEBAR
+========================= */
+
+body.dark-theme .sidebar {
+  background: #111b21;
+  border-right-color: #2a3942;
+}
+
+body.dark-theme .sidebar-header {
+  background: #202c33;
+}
+
+body.dark-theme .sidebar-header h1 {
+  color: #e9edef;
+}
+
+body.dark-theme .company {
+  color: #00a884;
+}
+
+body.dark-theme .menu-button,
+body.dark-theme .theme-toggle {
+  color: #aebac1;
+  background: transparent;
+}
+
+body.dark-theme .menu-button:hover,
+body.dark-theme .theme-toggle:hover {
+  background: #2a3942;
+}
+
+/* =========================
+   BUSCADOR
+========================= */
+
+body.dark-theme .search-container {
+  background: #111b21;
+  border-bottom-color: #222d34;
+}
+
+body.dark-theme .search-container input {
+  background: #202c33;
+  color: #e9edef;
+}
+
+body.dark-theme .search-container input::placeholder {
+  color: #8696a0;
+}
+
+/* =========================
+   CONVERSACIONES
+========================= */
+
+body.dark-theme .conversation {
+  border-bottom-color: #222d34;
+}
+
+body.dark-theme .conversation:hover {
+  background: #202c33;
+}
+
+body.dark-theme .conversation.active {
+  background: #2a3942;
+}
+
+body.dark-theme .conversation strong {
+  color: #e9edef;
+}
+
+body.dark-theme .conversation-message,
+body.dark-theme .conversation-time {
+  color: #8696a0;
+}
+
+/* =========================
+   CHAT
+========================= */
+
+body.dark-theme .chat {
+  background: #0b141a;
+}
+
+body.dark-theme .chat-header {
+  background: #202c33;
+}
+
+body.dark-theme .contact-data strong {
+  color: #e9edef;
+}
+
+body.dark-theme .contact-data span {
+  color: #8696a0;
+}
+
+body.dark-theme .edit-contact-button {
+  color: #aebac1;
+}
+
+/* =========================
+   FONDO DE MENSAJES
+========================= */
+
+body.dark-theme .messages {
+  background-color: #0b141a;
+}
+
+/* =========================
+   MENSAJES
+========================= */
+
+body.dark-theme .message.received {
+  background: #202c33;
+  color: #e9edef;
+}
+
+body.dark-theme .message.sent {
+  background: #005c4b;
+  color: #e9edef;
+}
+
+body.dark-theme .message-text {
+  color: #e9edef;
+}
+
+body.dark-theme .message-time {
+  color: #8696a0;
+}
+
+body.dark-theme .message-send-status {
+  color: #aebac1;
+}
+
+/* =========================
+   REACCIONES
+========================= */
+
+body.dark-theme .message-reaction {
+  background: #202c33;
+  border-color: #374248;
+  color: #e9edef;
+}
+
+/* =========================
+   BARRA PARA ESCRIBIR
+========================= */
+
+body.dark-theme .message-form {
+  background: #202c33;
+}
+
+body.dark-theme #message-input {
+  background: #2a3942;
+  border-color: #2a3942;
+  color: #e9edef;
+}
+
+body.dark-theme #message-input::placeholder {
+  color: #8696a0;
+}
+
+body.dark-theme #message-input:focus {
+  border-color: #3b4a54;
+}
+
+/* Clip */
+
+body.dark-theme .attach-image-button {
+  background: transparent;
+  color: #aebac1;
+}
+
+body.dark-theme .attach-image-button:hover {
+  background: #2a3942;
+}
+
+/* =========================
+   EMOJIS
+========================= */
+
+body.dark-theme .emoji-button {
+  background: transparent;
+  color: #aebac1;
+}
+
+body.dark-theme .emoji-button:hover {
+  background: #2a3942;
+}
+
+body.dark-theme .emoji-picker {
+  background: #202c33;
+  border-color: #374248;
+
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.45);
+}
+
+body.dark-theme .emoji-picker-header {
+  color: #aebac1;
+}
+
+body.dark-theme .emoji-item {
+  color: #e9edef;
+}
+
+body.dark-theme .emoji-item:hover {
+  background: #2a3942;
+}
+
+body.dark-theme .emoji-grid::-webkit-scrollbar-thumb {
+  background: #54656f;
+}
+
+/* =========================
+   AUDIOS
+========================= */
+
+body.dark-theme .audio-duration {
+  color: #aebac1;
+}
+
+body.dark-theme .audio-speed {
+  background: rgba(255, 255, 255, 0.1);
+  color: #d1d7db;
+}
+
+body.dark-theme .audio-loading {
+  color: #aebac1;
+}
+
+/* =========================
+   IMAGEN CARGANDO
+========================= */
+
+body.dark-theme .image-loading {
+  background: #202c33;
+  color: #8696a0;
+}
+
+/* =========================
+   VIDEOS
+========================= */
+
+body.dark-theme .video-loading {
+  background: #050505;
+  color: #aebac1;
+}
+
+/* =========================
+   MODAL EDITAR CONTACTO
+========================= */
+
+body.dark-theme .contact-modal {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+body.dark-theme .contact-modal-content {
+  background: #202c33;
+  color: #e9edef;
+}
+
+body.dark-theme .contact-modal-content h2,
+body.dark-theme .contact-modal-content label {
+  color: #e9edef;
+}
+
+body.dark-theme .contact-modal-content input {
+  background: #2a3942;
+  border: 1px solid #3b4a54;
+  color: #e9edef;
+  outline: none;
+}
+
+/* =========================
+   PANTALLA SIN CHAT
+========================= */
+
+body.dark-theme .empty-chat {
+  background: #0b141a;
+}
+
+body.dark-theme .empty-chat-content h1,
+body.dark-theme .empty-chat-content p {
+  color: #e9edef;
+}
+
+body.dark-theme .empty-chat-content span {
+  color: #8696a0;
+}
+
+/* =========================
+   SCROLLBARS
+========================= */
+
+body.dark-theme ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+body.dark-theme ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb {
+  background: #374248;
+  border-radius: 10px;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: #4a5c66;
+}
+/* =========================================================
+   EDITOR DE CAPTURAS
+========================================================= */
+
+.screenshot-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px;
+
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.screenshot-editor.active {
+  display: flex;
+}
+
+.screenshot-editor-content {
+  width: min(1000px, 95vw);
+  height: min(750px, 92vh);
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background: #ffffff;
+
+  border-radius: 12px;
+
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* HEADER */
+
+.screenshot-editor-header {
+  height: 58px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 18px;
+
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.screenshot-editor-header strong {
+  font-size: 16px;
+}
+
+#closeScreenshotEditor {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+
+  color: #54656f;
+
+  font-size: 30px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+#closeScreenshotEditor:hover {
+  background: #f0f2f5;
+}
+
+/* CANVAS */
+
+.screenshot-canvas-container {
+  flex: 1;
+  min-height: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: auto;
+
+  padding: 20px;
+
+  background: #111b21;
+}
+
+#screenshotCanvas {
+  display: block;
+
+  max-width: 100%;
+  max-height: 100%;
+
+  cursor: crosshair;
+
+  box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* FOOTER */
+
+.screenshot-editor-footer {
+  min-height: 68px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  padding: 12px 18px;
+
+  border-top: 1px solid #e5e7eb;
+}
+
+.screenshot-editor-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.screenshot-secondary-button,
+.screenshot-send-button {
+  padding: 10px 18px;
+
+  border: none;
+  border-radius: 8px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.screenshot-secondary-button {
+  background: #e9edef;
+  color: #111b21;
+}
+
+.screenshot-secondary-button:hover {
+  background: #dfe3e5;
+}
+
+.screenshot-send-button {
+  background: #00a884;
+  color: white;
+}
+
+.screenshot-send-button:hover {
+  background: #008f72;
+}
+
+/* =========================
+   EDITOR - TEMA OSCURO
+========================= */
+
+body.dark-theme .screenshot-editor-content {
+  background: #202c33;
+  color: #e9edef;
+}
+
+body.dark-theme .screenshot-editor-header,
+body.dark-theme .screenshot-editor-footer {
+  border-color: #374248;
+}
+
+body.dark-theme #closeScreenshotEditor {
+  color: #aebac1;
+}
+
+body.dark-theme #closeScreenshotEditor:hover {
+  background: #2a3942;
+}
+
+body.dark-theme .screenshot-secondary-button {
+  background: #2a3942;
+  color: #e9edef;
+}
+
+body.dark-theme .screenshot-secondary-button:hover {
+  background: #374248;
+}
+.message-action-button {
+  min-width: 74px;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 14px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: #00a884;
+  color: #ffffff;
+
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.message-action-button.is-microphone {
+  min-width: 44px;
+  width: 44px;
+
+  padding: 0;
+
+  border-radius: 50%;
+
+  font-size: 20px;
+}
+
+.audio-recording-status {
+  flex: 1;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0 14px;
+
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #667781;
+
+  font-size: 14px;
+}
+
+.audio-recording-status[hidden] {
+  display: none;
+}
+
+.recording-dot {
+  width: 9px;
+  height: 9px;
+
+  border-radius: 50%;
+  background: #e53935;
+
+  animation: recordingPulse 1s infinite;
+}
+
+@keyframes recordingPulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+body.dark-theme .audio-recording-status {
+  background: #2a3942;
+  color: #e9edef;
+}

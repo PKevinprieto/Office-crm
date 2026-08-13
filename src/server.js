@@ -1063,6 +1063,209 @@ app.post("/api/messages/video", upload.single("video"), async (req, res) => {
 });
 
 // =========================
+// ENVIAR AUDIO
+// =========================
+
+app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
+  try {
+    const { conversationId } = req.body;
+    const audioFile = req.file;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        ok: false,
+        message: "Falta conversationId",
+      });
+    }
+
+    if (!audioFile) {
+      return res.status(400).json({
+        ok: false,
+        message: "No se recibió ningún audio",
+      });
+    }
+
+    // =========================
+    // BUSCAR CONVERSACIÓN
+    // =========================
+
+    const conversationResult = await db.query(
+      `
+            SELECT *
+            FROM conversations
+            WHERE id = $1
+          `,
+      [Number(conversationId)],
+    );
+
+    const conversation = conversationResult.rows[0];
+
+    if (!conversation) {
+      return res.status(404).json({
+        ok: false,
+        message: "Conversación no encontrada",
+      });
+    }
+
+    // =========================
+    // CREDENCIALES META
+    // =========================
+
+    const token = process.env.WHATSAPP_TOKEN;
+
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    const apiVersion = process.env.WHATSAPP_API_VERSION;
+
+    if (!token || !phoneNumberId || !apiVersion) {
+      return res.status(500).json({
+        ok: false,
+        message: "Faltan credenciales de WhatsApp",
+      });
+    }
+
+    const recipient = conversation.whatsapp_number.replace(/\D/g, "");
+
+    // =========================
+    // 1. SUBIR AUDIO A META
+    // =========================
+
+    const formData = new FormData();
+
+    const cleanMimeType = audioFile.mimetype.split(";")[0];
+
+    formData.append(
+      "file",
+      new Blob([audioFile.buffer], {
+        type: cleanMimeType,
+      }),
+      audioFile.originalname,
+    );
+
+    formData.append("messaging_product", "whatsapp");
+
+    const uploadResponse = await axios.post(
+      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/media`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    const mediaId = uploadResponse.data.id;
+
+    console.log("Audio subido a Meta:", mediaId);
+
+    // =========================
+    // 2. ENVIAR AUDIO
+    // =========================
+
+    const whatsappResponse = await axios.post(
+      `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+      {
+        messaging_product: "whatsapp",
+
+        recipient_type: "individual",
+
+        to: recipient,
+
+        type: "audio",
+
+        audio: {
+          id: mediaId,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const whatsappMessageId = whatsappResponse.data.messages?.[0]?.id || null;
+
+    const timestamp = Date.now();
+
+    // =========================
+    // 3. GUARDAR EN POSTGRESQL
+    // =========================
+
+    await db.query(
+      `
+          INSERT INTO messages (
+            whatsapp_message_id,
+            conversation_id,
+            direction,
+            type,
+            text,
+            timestamp,
+            status,
+            media_id,
+            media_type
+          )
+          VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7, $8, $9
+          )
+        `,
+      [
+        whatsappMessageId,
+        Number(conversation.id),
+        "sent",
+        "audio",
+        "[audio]",
+        timestamp,
+        "sent",
+        mediaId,
+        "audio",
+      ],
+    );
+
+    // =========================
+    // 4. ACTUALIZAR CONVERSACIÓN
+    // =========================
+
+    await db.query(
+      `
+          UPDATE conversations
+          SET
+            last_message = $1,
+            last_message_at = $2
+          WHERE id = $3
+        `,
+      ["[audio]", timestamp, Number(conversation.id)],
+    );
+
+    // =========================
+    // 5. SOCKET
+    // =========================
+
+    io.emit("new-message", {
+      conversationId: Number(conversation.id),
+    });
+
+    return res.status(201).json({
+      ok: true,
+      mediaId,
+      whatsappMessageId,
+    });
+  } catch (error) {
+    console.error("Error enviando audio:", error.response?.data || error);
+
+    return res.status(500).json({
+      ok: false,
+      message: "No se pudo enviar el audio",
+
+      details: error.response?.data || null,
+    });
+  }
+});
+
+// =========================
 // DESCARGAR MULTIMEDIA
 // =========================
 

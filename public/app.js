@@ -3,16 +3,232 @@ const messagesContainer = document.querySelector("#messages");
 const contactName = document.querySelector("#contact-name");
 const contactNumber = document.querySelector("#contact-number");
 const messageForm = document.querySelector("#message-form");
+const messageActionButton = document.getElementById("messageActionButton");
+
+const messageActionContent = document.getElementById("messageActionContent");
+
+const audioRecordingStatus = document.getElementById("audioRecordingStatus");
+
+const audioRecordingTime = document.getElementById("audioRecordingTime");
+let audioRecorder = null;
+let audioStream = null;
+let audioChunks = [];
+
+let isRecordingAudio = false;
+
+let recordingStartedAt = null;
+let recordingTimer = null;
+function updateMessageActionButton() {
+  const hasText = messageInput.value.trim().length > 0;
+
+  if (isRecordingAudio) {
+    messageActionContent.textContent = "Enviar";
+
+    messageActionButton.classList.remove("is-microphone");
+
+    messageActionButton.title = "Enviar audio";
+
+    return;
+  }
+
+  if (hasText) {
+    messageActionContent.textContent = "Enviar";
+
+    messageActionButton.classList.remove("is-microphone");
+
+    messageActionButton.title = "Enviar mensaje";
+  } else {
+    messageActionContent.textContent = "🎤";
+
+    messageActionButton.classList.add("is-microphone");
+
+    messageActionButton.title = "Grabar audio";
+  }
+}
+
+async function startAudioRecording() {
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+
+    let mimeType = "";
+
+    const preferredTypes = [
+      "audio/ogg;codecs=opus",
+      "audio/mp4",
+      "audio/webm;codecs=opus",
+      "audio/webm",
+    ];
+
+    for (const type of preferredTypes) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        mimeType = type;
+        break;
+      }
+    }
+
+    audioChunks = [];
+
+    audioRecorder = mimeType
+      ? new MediaRecorder(audioStream, {
+          mimeType,
+        })
+      : new MediaRecorder(audioStream);
+
+    audioRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    });
+
+    audioRecorder.addEventListener("stop", sendRecordedAudio);
+
+    audioRecorder.start();
+
+    isRecordingAudio = true;
+
+    recordingStartedAt = Date.now();
+
+    messageInput.hidden = true;
+    audioRecordingStatus.hidden = false;
+
+    updateRecordingTime();
+
+    recordingTimer = setInterval(updateRecordingTime, 500);
+
+    updateMessageActionButton();
+  } catch (error) {
+    console.error("No se pudo acceder al micrófono:", error);
+
+    alert("Office CRM no pudo acceder al micrófono.");
+  }
+}
+
+function updateRecordingTime() {
+  if (!recordingStartedAt) {
+    return;
+  }
+
+  const seconds = Math.floor((Date.now() - recordingStartedAt) / 1000);
+
+  const minutes = Math.floor(seconds / 60);
+
+  const remainingSeconds = seconds % 60;
+
+  audioRecordingTime.textContent = `${minutes}:${String(
+    remainingSeconds,
+  ).padStart(2, "0")}`;
+}
+function stopAudioRecording() {
+  if (!audioRecorder || audioRecorder.state === "inactive") {
+    return;
+  }
+
+  isRecordingAudio = false;
+
+  clearInterval(recordingTimer);
+
+  recordingTimer = null;
+
+  audioRecorder.stop();
+
+  audioStream?.getTracks().forEach((track) => track.stop());
+
+  audioStream = null;
+
+  messageInput.hidden = false;
+  audioRecordingStatus.hidden = true;
+
+  updateMessageActionButton();
+}
+
+async function sendRecordedAudio() {
+  try {
+    if (!audioChunks.length || !activeConversationId) {
+      return;
+    }
+
+    const mimeType = audioRecorder?.mimeType || "audio/mp4";
+
+    const audioBlob = new Blob(audioChunks, {
+      type: mimeType,
+    });
+
+    console.log("Audio preparado:", audioBlob.size, audioBlob.type);
+
+    const arrayBuffer = await audioBlob.arrayBuffer();
+
+    const response = await window.officeCRM.sendAudio({
+      conversationId: Number(activeConversationId),
+
+      fileName: `audio-${Date.now()}.mp4`,
+
+      mimeType: mimeType,
+
+      fileBuffer: arrayBuffer,
+    });
+
+    if (!response.ok) {
+      throw new Error(response.data?.message || "No se pudo enviar el audio");
+    }
+
+    console.log("Audio enviado correctamente");
+
+    conversationCache.delete(Number(activeConversationId));
+
+    await loadConversations();
+
+    updateConversationInBackground(Number(activeConversationId));
+  } catch (error) {
+    console.error("Error enviando audio:", error);
+
+    alert(error.message);
+  } finally {
+    audioChunks = [];
+    audioRecorder = null;
+    recordingStartedAt = null;
+
+    messageInput.focus();
+  }
+}
+const screenshotEditor = document.getElementById("screenshotEditor");
+
+const screenshotCanvas = document.getElementById("screenshotCanvas");
+
+const closeScreenshotEditor = document.getElementById("closeScreenshotEditor");
+
+const cancelScreenshot = document.getElementById("cancelScreenshot");
+
+const sendScreenshot = document.getElementById("sendScreenshot");
+
+const clearScreenshotDrawing = document.getElementById(
+  "clearScreenshotDrawing",
+);
+const screenshotCtx = screenshotCanvas.getContext("2d");
+
+let screenshotOriginalImage = null;
+let screenshotConversationId = null;
+let screenshotCaption = "";
+
+let isDrawingScreenshot = false;
+const emojiButton = document.getElementById("emojiButton");
+
+const emojiPicker = document.getElementById("emojiPicker");
+
+const emojiGrid = document.getElementById("emojiGrid");
 const messageInput = document.querySelector("#message-input");
 messageInput.addEventListener("input", () => {
+  updateMessageActionButton();
   messageInput.style.height = "44px";
 
   const newHeight = Math.min(messageInput.scrollHeight, 140);
 
   messageInput.style.height = `${newHeight}px`;
+  updateMessageActionButton();
 });
 const searchInput = document.querySelector("#search");
-
+const themeToggle = document.getElementById("themeToggle");
 const emptyChat = document.querySelector("#empty-chat");
 const activeChat = document.querySelector("#active-chat");
 
@@ -24,43 +240,396 @@ imageInput.addEventListener("change", async () => {
     return;
   }
 
+  const conversationId = Number(activeConversationId);
   const caption = messageInput.value.trim();
 
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+
+  if (!isImage && !isVideo) {
+    alert("El archivo seleccionado no es compatible");
+    imageInput.value = "";
+    return;
+  }
+
+  // =========================
+  // PREVIEW INMEDIATO
+  // =========================
+
+  const tempId = `temp-media-${Date.now()}-${Math.random()}`;
+
+  const previewUrl = URL.createObjectURL(file);
+
+  const now = Date.now();
+
+  const optimisticMedia = {
+    id: tempId,
+    type: "sent",
+    mediaType: isImage ? "image" : "video",
+    previewUrl,
+    text: caption,
+    time: new Date(now).toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+
+  // Mostrar INMEDIATAMENTE
+  appendOptimisticMedia(optimisticMedia);
+
+  // Limpiamos el input inmediatamente
+  messageInput.value = "";
+  messageInput.style.height = "44px";
+  imageInput.value = "";
+
   try {
-    // Convertir archivo del navegador
-    // a ArrayBuffer para mandarlo por IPC.
+    // =========================
+    // ENVÍO REAL EN SEGUNDO PLANO
+    // =========================
+
     const arrayBuffer = await file.arrayBuffer();
 
-    const response = await window.officeCRM.sendImage({
-      conversationId: activeConversationId,
+    let response;
 
-      caption,
-
-      fileName: file.name,
-
-      mimeType: file.type,
-
-      fileBuffer: arrayBuffer,
-    });
-
-    if (!response.ok) {
-      throw new Error(response.data?.message || "No se pudo enviar la imagen");
+    if (isImage) {
+      response = await window.officeCRM.sendImage({
+        conversationId,
+        caption,
+        fileName: file.name,
+        mimeType: file.type,
+        fileBuffer: arrayBuffer,
+      });
     }
 
-    messageInput.value = "";
-    imageInput.value = "";
+    if (isVideo) {
+      response = await window.officeCRM.sendVideo({
+        conversationId,
+        caption,
+        fileName: file.name,
+        mimeType: file.type,
+        fileBuffer: arrayBuffer,
+      });
+    }
 
-    // Invalidamos el caché porque hay
-    // una imagen nueva en este chat.
-    conversationCache.delete(Number(activeConversationId));
+    if (!response.ok) {
+      throw new Error(response.data?.message || "No se pudo enviar el archivo");
+    }
 
+    // ✓ enviado
+    updateOptimisticMessageStatus(tempId, "sent");
+
+    // Actualizamos solamente la lista izquierda
     await loadConversations();
-    await loadActiveConversation();
+
+    // Actualizamos caché sin tocar visualmente el chat
+    updateConversationInBackground(conversationId);
+
+    // Liberamos la URL temporal más adelante
+    setTimeout(() => {
+      URL.revokeObjectURL(previewUrl);
+    }, 60000);
   } catch (error) {
     console.error(error);
-    alert(error.message);
+
+    // Dejamos el archivo visible pero marcado con error
+    updateOptimisticMessageStatus(tempId, "failed");
   }
 });
+// =========================
+// PEGAR CAPTURA
+// =========================
+
+document.addEventListener("paste", (event) => {
+  if (!activeConversationId) {
+    return;
+  }
+
+  const items = event.clipboardData?.items;
+
+  if (!items) {
+    return;
+  }
+
+  const imageItem = Array.from(items).find((item) =>
+    item.type.startsWith("image/"),
+  );
+
+  // Si es texto, Ctrl + V sigue funcionando normalmente
+  if (!imageItem) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const file = imageItem.getAsFile();
+
+  if (!file) {
+    return;
+  }
+
+  openScreenshotEditor(file);
+});
+
+function openScreenshotEditor(file) {
+  const image = new Image();
+
+  const imageUrl = URL.createObjectURL(file);
+
+  image.onload = () => {
+    screenshotOriginalImage = image;
+
+    screenshotConversationId = Number(activeConversationId);
+
+    screenshotCaption = messageInput.value.trim();
+
+    screenshotCanvas.width = image.naturalWidth;
+
+    screenshotCanvas.height = image.naturalHeight;
+
+    screenshotCtx.clearRect(
+      0,
+      0,
+      screenshotCanvas.width,
+      screenshotCanvas.height,
+    );
+
+    screenshotCtx.drawImage(image, 0, 0);
+
+    screenshotEditor.classList.add("active");
+
+    URL.revokeObjectURL(imageUrl);
+  };
+
+  image.src = imageUrl;
+}
+
+screenshotCanvas.addEventListener("mousedown", (event) => {
+  isDrawingScreenshot = true;
+
+  const point = getScreenshotCanvasPoint(event);
+
+  screenshotCtx.beginPath();
+
+  screenshotCtx.moveTo(point.x, point.y);
+});
+
+screenshotCanvas.addEventListener("mousemove", (event) => {
+  if (!isDrawingScreenshot) {
+    return;
+  }
+
+  const point = getScreenshotCanvasPoint(event);
+
+  screenshotCtx.lineTo(point.x, point.y);
+
+  screenshotCtx.strokeStyle = "#ff0000";
+  screenshotCtx.lineWidth = 5;
+  screenshotCtx.lineCap = "round";
+  screenshotCtx.lineJoin = "round";
+
+  screenshotCtx.stroke();
+});
+
+document.addEventListener("mouseup", () => {
+  isDrawingScreenshot = false;
+});
+
+function getScreenshotCanvasPoint(event) {
+  const rect = screenshotCanvas.getBoundingClientRect();
+
+  const scaleX = screenshotCanvas.width / rect.width;
+
+  const scaleY = screenshotCanvas.height / rect.height;
+
+  return {
+    x: (event.clientX - rect.left) * scaleX,
+
+    y: (event.clientY - rect.top) * scaleY,
+  };
+}
+
+clearScreenshotDrawing.addEventListener("click", () => {
+  if (!screenshotOriginalImage) {
+    return;
+  }
+
+  screenshotCtx.clearRect(
+    0,
+    0,
+    screenshotCanvas.width,
+    screenshotCanvas.height,
+  );
+
+  screenshotCtx.drawImage(screenshotOriginalImage, 0, 0);
+});
+
+function closeScreenshotEditorWindow() {
+  screenshotEditor.classList.remove("active");
+
+  screenshotOriginalImage = null;
+  screenshotConversationId = null;
+  screenshotCaption = "";
+}
+
+closeScreenshotEditor.addEventListener("click", closeScreenshotEditorWindow);
+
+cancelScreenshot.addEventListener("click", closeScreenshotEditorWindow);
+
+sendScreenshot.addEventListener("click", async () => {
+  if (!screenshotConversationId) {
+    return;
+  }
+
+  // Convertimos el canvas ya editado a PNG
+  screenshotCanvas.toBlob(
+    async (blob) => {
+      if (!blob) {
+        return;
+      }
+
+      const conversationId = screenshotConversationId;
+
+      const caption = screenshotCaption;
+
+      const file = new File([blob], `captura-${Date.now()}.png`, {
+        type: "image/png",
+      });
+
+      // Cerramos editor inmediatamente
+      closeScreenshotEditorWindow();
+
+      // Limpiamos textarea
+      messageInput.value = "";
+      messageInput.style.height = "44px";
+
+      // Preview instantáneo
+      const previewUrl = URL.createObjectURL(file);
+
+      const tempId = `temp-screenshot-${Date.now()}-${Math.random()}`;
+
+      appendOptimisticMedia({
+        id: tempId,
+        type: "sent",
+        mediaType: "image",
+        previewUrl,
+        text: caption,
+
+        time: new Date().toLocaleTimeString("es-AR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      });
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+
+        const response = await window.officeCRM.sendImage({
+          conversationId,
+          caption,
+          fileName: file.name,
+          mimeType: file.type,
+          fileBuffer: arrayBuffer,
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            response.data?.message || "No se pudo enviar la captura",
+          );
+        }
+
+        updateOptimisticMessageStatus(tempId, "sent");
+
+        await loadConversations();
+
+        updateConversationInBackground(conversationId);
+
+        setTimeout(() => {
+          URL.revokeObjectURL(previewUrl);
+        }, 60000);
+      } catch (error) {
+        console.error("Error enviando captura:", error);
+
+        updateOptimisticMessageStatus(tempId, "failed");
+      }
+    },
+
+    "image/png",
+  );
+});
+
+function appendOptimisticMedia(message) {
+  const messageElement = document.createElement("article");
+
+  messageElement.className = `message ${message.type}`;
+
+  messageElement.dataset.tempId = message.id;
+
+  // =========================
+  // IMAGEN
+  // =========================
+
+  if (message.mediaType === "image") {
+    messageElement.innerHTML = `
+      <div class="message-image-container">
+
+        <img
+          class="message-image"
+          src="${message.previewUrl}"
+          alt="Imagen enviando"
+        >
+
+      </div>
+
+      ${message.text ? `<p class="message-text">${message.text}</p>` : ""}
+
+      <div class="message-meta">
+
+        <span class="message-time">
+          ${message.time}
+        </span>
+
+        <span class="message-send-status">
+          ◷
+        </span>
+
+      </div>
+    `;
+  }
+
+  // =========================
+  // VIDEO
+  // =========================
+
+  if (message.mediaType === "video") {
+    messageElement.innerHTML = `
+      <video
+        class="message-video"
+        src="${message.previewUrl}"
+        controls
+        preload="metadata"
+      ></video>
+
+      ${message.text ? `<p class="message-text">${message.text}</p>` : ""}
+
+      <div class="message-meta">
+
+        <span class="message-time">
+          ${message.time}
+        </span>
+
+        <span class="message-send-status">
+          ◷
+        </span>
+
+      </div>
+    `;
+  }
+
+  messagesContainer.appendChild(messageElement);
+
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
 const attachImageButton = document.querySelector("#attachImageButton");
 attachImageButton.addEventListener("click", () => {
   imageInput.click();
@@ -317,6 +886,7 @@ function renderConversations(list = conversations) {
 
       renderConversations();
       await loadActiveConversation();
+      messageInput.focus();
     });
 
     conversationList.appendChild(article);
@@ -809,10 +1379,21 @@ messageInput.addEventListener("keydown", (event) => {
 });
 messageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (isRecordingAudio) {
+    stopAudioRecording();
+    return;
+  }
 
   const text = messageInput.value.trim();
 
-  if (!text || !activeConversationId) {
+  // Si no hay texto,
+  // el botón funciona como micrófono.
+  if (!text) {
+    await startAudioRecording();
+    return;
+  }
+
+  if (!activeConversationId) {
     return;
   }
 
@@ -1045,5 +1626,274 @@ document.addEventListener("keydown", (event) => {
   // 3. Si no hay nada abierto, cerrar el chat
   closeActiveConversation();
 });
+// =========================
+// EMOJIS
+// =========================
 
+const emojis = [
+  "😀",
+  "😃",
+  "😄",
+  "😁",
+  "😆",
+  "😅",
+  "😂",
+  "🤣",
+  "😊",
+  "😇",
+  "🙂",
+  "🙃",
+  "😉",
+  "😌",
+  "😍",
+  "🥰",
+  "😘",
+  "😗",
+  "😙",
+  "😚",
+  "😋",
+  "😛",
+  "😝",
+  "😜",
+  "🤪",
+  "🤨",
+  "🧐",
+  "🤓",
+  "😎",
+  "🥸",
+  "🤩",
+  "🥳",
+  "😏",
+  "😒",
+  "😞",
+  "😔",
+  "😟",
+  "😕",
+  "🙁",
+  "☹️",
+  "😣",
+  "😖",
+  "😫",
+  "😩",
+  "🥺",
+  "😢",
+  "😭",
+  "😤",
+  "😠",
+  "😡",
+  "🤬",
+  "🤯",
+  "😳",
+  "🥵",
+  "🥶",
+  "😱",
+  "😨",
+  "😰",
+  "😥",
+  "😓",
+  "🤗",
+  "🤔",
+  "🫣",
+  "🤭",
+  "🤫",
+  "🤥",
+  "😶",
+  "😐",
+  "😑",
+  "😬",
+  "🙄",
+  "😯",
+
+  "👍",
+  "👎",
+  "👌",
+  "✌️",
+  "🤞",
+  "🤟",
+  "🤘",
+  "🤙",
+  "👈",
+  "👉",
+  "👆",
+  "👇",
+  "☝️",
+  "✋",
+  "🤚",
+  "🖐️",
+  "👋",
+  "👏",
+  "🙌",
+  "🫶",
+  "🤝",
+  "🙏",
+  "💪",
+  "🫵",
+
+  "❤️",
+  "🧡",
+  "💛",
+  "💚",
+  "💙",
+  "💜",
+  "🖤",
+  "🤍",
+  "🤎",
+  "💔",
+  "❤️‍🔥",
+  "❤️‍🩹",
+  "💕",
+  "💞",
+  "💓",
+  "💗",
+
+  "🔥",
+  "✨",
+  "⭐",
+  "🌟",
+  "💫",
+  "💥",
+  "💯",
+  "💢",
+  "🎉",
+  "🎊",
+  "🎁",
+  "🏆",
+  "🥇",
+  "⚽",
+  "🎮",
+  "🚀",
+
+  "🐶",
+  "🐱",
+  "🐭",
+  "🐹",
+  "🐰",
+  "🦊",
+  "🐻",
+  "🐼",
+  "🐨",
+  "🐯",
+  "🦁",
+  "🐮",
+  "🐷",
+  "🐸",
+  "🐵",
+  "🐔",
+
+  "🍕",
+  "🍔",
+  "🍟",
+  "🌭",
+  "🍿",
+  "🍩",
+  "🍪",
+  "🎂",
+  "🍺",
+  "🍻",
+  "🥂",
+  "☕",
+  "🧉",
+  "🍎",
+  "🍓",
+  "🍉",
+
+  "✅",
+  "❌",
+  "⚠️",
+  "❗",
+  "❓",
+  "💬",
+  "📞",
+  "📱",
+  "💻",
+  "📎",
+  "📌",
+  "📍",
+  "💰",
+  "💵",
+  "🛒",
+  "📦",
+];
+
+function renderEmojiPicker() {
+  emojiGrid.innerHTML = "";
+
+  emojis.forEach((emoji) => {
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.className = "emoji-item";
+    button.textContent = emoji;
+
+    button.addEventListener("click", () => {
+      insertEmoji(emoji);
+    });
+
+    emojiGrid.appendChild(button);
+  });
+}
+
+function insertEmoji(emoji) {
+  const start = messageInput.selectionStart;
+
+  const end = messageInput.selectionEnd;
+
+  const currentText = messageInput.value;
+
+  messageInput.value =
+    currentText.slice(0, start) + emoji + currentText.slice(end);
+
+  const newPosition = start + emoji.length;
+
+  messageInput.focus();
+
+  messageInput.setSelectionRange(newPosition, newPosition);
+
+  // Disparamos input para que también
+  // funcione tu auto-height del textarea.
+  messageInput.dispatchEvent(new Event("input"));
+}
+
+emojiButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+
+  emojiPicker.hidden = !emojiPicker.hidden;
+});
+
+emojiPicker.addEventListener("click", (event) => {
+  event.stopPropagation();
+});
+
+document.addEventListener("click", () => {
+  emojiPicker.hidden = true;
+});
+
+renderEmojiPicker();
+
+// =========================
+// TEMA CLARO / OSCURO
+// =========================
+
+function applyTheme(theme) {
+  document.body.classList.toggle("dark-theme", theme === "dark");
+
+  themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+
+  themeToggle.title =
+    theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro";
+}
+
+const savedTheme = localStorage.getItem("office-theme") || "light";
+
+applyTheme(savedTheme);
+
+themeToggle.addEventListener("click", () => {
+  const isDark = document.body.classList.contains("dark-theme");
+
+  const newTheme = isDark ? "light" : "dark";
+
+  localStorage.setItem("office-theme", newTheme);
+
+  applyTheme(newTheme);
+});
 loadConversations();
