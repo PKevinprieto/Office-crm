@@ -2,6 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const axios = require("axios");
+const fs = require("fs");
+const os = require("os");
+const { execFile } = require("child_process");
+const ffmpegPath = require("ffmpeg-static");
 const http = require("http");
 const { db, initializeDatabase } = require("./database");
 const multer = require("multer");
@@ -85,6 +89,68 @@ function formatTime(timestamp) {
   return new Date(Number(timestamp)).toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function convertAudioToOggOpus(inputBuffer) {
+  return new Promise((resolve, reject) => {
+    const tempId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const inputPath = path.join(os.tmpdir(), `office-audio-${tempId}.mp4`);
+
+    const outputPath = path.join(os.tmpdir(), `office-audio-${tempId}.ogg`);
+
+    fs.writeFileSync(inputPath, inputBuffer);
+
+    execFile(
+      ffmpegPath,
+      [
+        "-y",
+        "-i",
+        inputPath,
+
+        "-vn",
+
+        "-c:a",
+        "libopus",
+
+        "-b:a",
+        "32k",
+
+        "-ar",
+        "48000",
+
+        "-ac",
+        "1",
+
+        outputPath,
+      ],
+      (error, stdout, stderr) => {
+        try {
+          fs.unlinkSync(inputPath);
+        } catch {}
+
+        if (error) {
+          try {
+            fs.unlinkSync(outputPath);
+          } catch {}
+
+          console.error("Error FFmpeg:", stderr);
+
+          return reject(error);
+        }
+
+        try {
+          const outputBuffer = fs.readFileSync(outputPath);
+
+          fs.unlinkSync(outputPath);
+
+          resolve(outputBuffer);
+        } catch (readError) {
+          reject(readError);
+        }
+      },
+    );
   });
 }
 
@@ -1130,16 +1196,22 @@ app.post("/api/messages/audio", upload.single("audio"), async (req, res) => {
     // 1. SUBIR AUDIO A META
     // =========================
 
-    const formData = new FormData();
+    console.log("Audio original:", audioFile.size, audioFile.mimetype);
 
-    const cleanMimeType = audioFile.mimetype.split(";")[0];
+    // Convertimos el audio grabado
+    // a OGG + Opus antes de subirlo.
+    const convertedAudio = await convertAudioToOggOpus(audioFile.buffer);
+
+    console.log("Audio convertido:", convertedAudio.length, "audio/ogg");
+
+    const formData = new FormData();
 
     formData.append(
       "file",
-      new Blob([audioFile.buffer], {
-        type: cleanMimeType,
+      new Blob([convertedAudio], {
+        type: "audio/ogg",
       }),
-      audioFile.originalname,
+      `audio-${Date.now()}.ogg`,
     );
 
     formData.append("messaging_product", "whatsapp");
