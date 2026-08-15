@@ -15,7 +15,7 @@ module.exports = {
     {
       name: "@electron-forge/maker-squirrel",
       config: {
-        name: "office_crm",
+        name: "Office CRM",
         setupExe: "Office CRM Setup.exe",
         setupIcon: "./assets/icon.ico",
       },

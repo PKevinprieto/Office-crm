@@ -1,3 +1,6 @@
+if (require("electron-squirrel-startup")) {
+  return;
+}
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const fs = require("fs");
 const { io } = require("socket.io-client");
@@ -7,7 +10,7 @@ require("dotenv").config();
 let mainWindow;
 let socket;
 
-const BACKEND_URL = "https://office-crm-2i0s.onrender.com";
+const BACKEND_URL = "https://office-crm-72fv.onrender.com";
 
 let OFFICE_CLIENT_KEY = process.env.OFFICE_CLIENT_KEY;
 

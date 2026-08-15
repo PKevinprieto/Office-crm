@@ -14,23 +14,18 @@
     <main class="crm">
       <aside class="sidebar">
         <header class="sidebar-header">
-          <div>
-            <span class="company">Office</span>
-            <h1>Conversaciones</h1>
-          </div>
+          <button
+            id="themeToggle"
+            class="theme-toggle"
+            type="button"
+            title="Cambiar tema"
+          >
+            ☀️
+          </button>
 
-          <div class="sidebar-actions">
-            <button
-              id="themeToggle"
-              class="theme-toggle"
-              type="button"
-              title="Cambiar tema"
-            >
-              🌙
-            </button>
+          <h1 class="mobile-title">Office CRM</h1>
 
-            <button class="menu-button" type="button">⋮</button>
-          </div>
+          <button class="menu-button" type="button">⋮</button>
         </header>
 
         <div class="search-container">
@@ -50,8 +45,26 @@
         </div>
         <div id="active-chat" class="active-chat">
           <header class="chat-header">
+            <button
+              id="mobileBackButton"
+              class="mobile-back-button"
+              type="button"
+              aria-label="Volver"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="26"
+                height="26"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
             <div class="avatar"></div>
-
             <div class="contact-data">
               <div class="contact-name-row">
                 <strong id="contact-name"></strong>
@@ -135,9 +148,20 @@
               class="audio-recording-status"
               hidden
             >
+              <button
+                id="cancelAudioRecording"
+                class="cancel-audio-recording"
+                type="button"
+                title="Eliminar grabación"
+              >
+                🗑️
+              </button>
+
               <span class="recording-dot"></span>
+
               <span>Grabando</span>
-              <span id="audioRecordingTime">0:00</span>
+
+              <span id="audioRecordingTime"> 0:00 </span>
             </div>
 
             <button
@@ -146,7 +170,46 @@
               type="submit"
               title="Grabar audio"
             >
-              <span id="messageActionContent">🎤</span>
+              <span id="messageActionContent">
+                <!-- MICRÓFONO -->
+                <svg
+                  id="microphoneIcon"
+                  class="action-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"
+                  />
+                  <path d="M5 10v2a7 7 0 0 0 14 0v-2" />
+                  <path d="M12 19v3" />
+                </svg>
+
+                <!-- ENVIAR -->
+                <svg
+                  id="sendIcon"
+                  class="action-icon"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m13 6 6 6-6 6" />
+                </svg>
+              </span>
             </button>
           </form>
         </div>
@@ -216,7 +279,8 @@
         </div>
       </div>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script src="mobile-bridge.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

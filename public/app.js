@@ -3,6 +3,16 @@ const messagesContainer = document.querySelector("#messages");
 const contactName = document.querySelector("#contact-name");
 const contactNumber = document.querySelector("#contact-number");
 const messageForm = document.querySelector("#message-form");
+const microphoneIcon = document.getElementById("microphoneIcon");
+
+const sendIcon = document.getElementById("sendIcon");
+const mobileBackButton = document.getElementById("mobileBackButton");
+
+mobileBackButton.addEventListener("click", () => {
+  closeActiveConversation();
+});
+const cancelAudioRecording = document.getElementById("cancelAudioRecording");
+
 const messageActionButton = document.getElementById("messageActionButton");
 
 const messageActionContent = document.getElementById("messageActionContent");
@@ -15,35 +25,39 @@ let audioStream = null;
 let audioChunks = [];
 
 let isRecordingAudio = false;
-
+let audioRecordingCancelled = false;
 let recordingStartedAt = null;
 let recordingTimer = null;
 function updateMessageActionButton() {
   const hasText = messageInput.value.trim().length > 0;
 
-  if (isRecordingAudio) {
-    messageActionContent.textContent = "Enviar";
+  const showSend = hasText || isRecordingAudio;
+
+  if (showSend) {
+    // Ocultar micrófono
+    microphoneIcon.style.display = "none";
+
+    // Mostrar enviar
+    sendIcon.style.display = "block";
 
     messageActionButton.classList.remove("is-microphone");
 
-    messageActionButton.title = "Enviar audio";
+    messageActionButton.title = isRecordingAudio
+      ? "Enviar audio"
+      : "Enviar mensaje";
 
     return;
   }
 
-  if (hasText) {
-    messageActionContent.textContent = "Enviar";
+  // Mostrar micrófono
+  microphoneIcon.style.display = "block";
 
-    messageActionButton.classList.remove("is-microphone");
+  // Ocultar enviar
+  sendIcon.style.display = "none";
 
-    messageActionButton.title = "Enviar mensaje";
-  } else {
-    messageActionContent.textContent = "🎤";
+  messageActionButton.classList.add("is-microphone");
 
-    messageActionButton.classList.add("is-microphone");
-
-    messageActionButton.title = "Grabar audio";
-  }
+  messageActionButton.title = "Grabar audio";
 }
 
 async function startAudioRecording() {
@@ -67,7 +81,7 @@ async function startAudioRecording() {
         break;
       }
     }
-
+    audioRecordingCancelled = false;
     audioChunks = [];
 
     audioRecorder = mimeType
@@ -82,12 +96,22 @@ async function startAudioRecording() {
       }
     });
 
-    audioRecorder.addEventListener("stop", sendRecordedAudio);
+    audioRecorder.addEventListener("stop", () => {
+      if (audioRecordingCancelled) {
+        audioChunks = [];
+        audioRecorder = null;
+        recordingStartedAt = null;
+
+        return;
+      }
+
+      sendRecordedAudio();
+    });
 
     audioRecorder.start();
 
     isRecordingAudio = true;
-
+    updateMessageActionButton();
     recordingStartedAt = Date.now();
 
     messageInput.hidden = true;
@@ -96,8 +120,6 @@ async function startAudioRecording() {
     updateRecordingTime();
 
     recordingTimer = setInterval(updateRecordingTime, 500);
-
-    updateMessageActionButton();
   } catch (error) {
     console.error("No se pudo acceder al micrófono:", error);
 
@@ -142,6 +164,44 @@ function stopAudioRecording() {
 
   updateMessageActionButton();
 }
+
+function cancelCurrentAudioRecording() {
+  if (!audioRecorder || audioRecorder.state === "inactive") {
+    return;
+  }
+
+  // Marcamos que esta grabación
+  // NO debe enviarse.
+  audioRecordingCancelled = true;
+
+  isRecordingAudio = false;
+
+  clearInterval(recordingTimer);
+  recordingTimer = null;
+
+  // Esto dispara "stop", pero nuestro
+  // listener sabe que fue cancelado.
+  audioRecorder.stop();
+
+  audioStream?.getTracks().forEach((track) => {
+    track.stop();
+  });
+
+  audioStream = null;
+
+  messageInput.hidden = false;
+  audioRecordingStatus.hidden = true;
+
+  audioRecordingTime.textContent = "0:00";
+
+  updateMessageActionButton();
+
+  messageInput.focus();
+}
+
+cancelAudioRecording.addEventListener("click", () => {
+  cancelCurrentAudioRecording();
+});
 
 async function sendRecordedAudio() {
   const conversationId = Number(activeConversationId);
@@ -385,6 +445,7 @@ const emojiPicker = document.getElementById("emojiPicker");
 
 const emojiGrid = document.getElementById("emojiGrid");
 const messageInput = document.querySelector("#message-input");
+updateMessageActionButton();
 messageInput.addEventListener("input", () => {
   updateMessageActionButton();
   messageInput.style.height = "44px";
@@ -1045,6 +1106,7 @@ function renderConversations(list = conversations) {
 
     article.addEventListener("click", async () => {
       activeConversationId = conversation.id;
+      document.body.classList.add("mobile-chat-open");
 
       // Ya abrimos el chat: deja de estar "no leído"
       unreadChats.delete(Number(conversation.id));
@@ -1568,6 +1630,7 @@ messageForm.addEventListener("submit", async (event) => {
 
   // Limpiamos el input INMEDIATAMENTE
   messageInput.value = "";
+  updateMessageActionButton();
   messageInput.focus();
 
   // =========================
@@ -1761,6 +1824,8 @@ async function refreshActiveConversation(conversationId) {
 }
 function closeActiveConversation() {
   activeConversationId = null;
+
+  document.body.classList.remove("mobile-chat-open");
 
   contactName.textContent = "";
   contactNumber.textContent = "";
@@ -2063,4 +2128,5 @@ themeToggle.addEventListener("click", () => {
 
   applyTheme(newTheme);
 });
+
 loadConversations();

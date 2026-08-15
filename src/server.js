@@ -88,6 +88,7 @@ app.use("/api", requireClientAuth);
 
 function formatTime(timestamp) {
   return new Date(Number(timestamp)).toLocaleTimeString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
     hour: "2-digit",
     minute: "2-digit",
   });
